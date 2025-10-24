@@ -20,6 +20,7 @@ const poapService = new PoapService();
 
 const server = express();
 server.use(express.json());
+server.use(express.urlencoded({ extended: true }));
 // Static files served by Vercel routing
 
 // Handle slash commands directly
