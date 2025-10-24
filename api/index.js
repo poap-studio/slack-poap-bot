@@ -23,11 +23,16 @@ server.use(express.json());
 server.use(express.urlencoded({ extended: true }));
 // Static files served by Vercel routing
 
-// Handle slash commands directly
+// Handle slash commands and events
 server.post('/slack/events', async (req, res) => {
   const { type, challenge, event, command, text, user_id, channel_id } = req.body;
   
-  console.log('Received request:', { type, command, event: !!event });
+  console.log('🚀 Received request:', { 
+    type, 
+    command, 
+    event: event ? event.type : null,
+    headers: Object.keys(req.headers)
+  });
   
   // Handle URL verification
   if (type === 'url_verification') {
@@ -187,11 +192,20 @@ server.post('/slack/events', async (req, res) => {
         const channelInfo = await web.conversations.info({ channel: channelId });
         const channelName = channelInfo.channel.name || channelId;
         
+        console.log(`🔍 Looking for POAP rule in channel: ${channelName}`);
+        
         const poapRule = await db.getPoapRuleByChannel(channelName);
         if (!poapRule) {
-          console.log(`No POAP rule found for channel: ${channelName}`);
+          console.log(`❌ No POAP rule found for channel: ${channelName}`);
+          console.log('Available rules:', await new Promise(resolve => {
+            db.db.all('SELECT channel_id FROM poap_rules WHERE is_active = 1', (err, rows) => {
+              resolve(rows.map(r => r.channel_id));
+            });
+          }));
           return res.sendStatus(200);
         }
+        
+        console.log(`✅ Found POAP rule for ${channelName}:`, poapRule);
         
         const reactionsResult = await web.reactions.get({
           channel: channelId,
