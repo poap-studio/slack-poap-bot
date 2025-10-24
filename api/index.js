@@ -20,6 +20,7 @@ const poapService = new PoapService();
 
 const server = express();
 server.use(express.json());
+server.use(express.static('public'));
 
 server.post('/slack/events', (req, res) => {
   const { type, challenge, event } = req.body;
@@ -64,6 +65,46 @@ server.post('/poap-rules', async (req, res) => {
     res.json({ id: ruleId, message: 'POAP rule created successfully' });
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+});
+
+server.delete('/poap-rules/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await new Promise((resolve, reject) => {
+      db.db.run('UPDATE poap_rules SET is_active = 0 WHERE id = ?', [id], function(err) {
+        if (err) reject(err);
+        else resolve(this.changes);
+      });
+    });
+    res.json({ message: 'POAP rule deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+server.get('/admin', (req, res) => {
+  res.sendFile('admin.html', { root: 'public' });
+});
+
+server.get('/slack-channels', async (req, res) => {
+  try {
+    const result = await web.conversations.list({
+      types: 'public_channel,private_channel',
+      limit: 200
+    });
+    
+    const channels = result.channels.map(channel => ({
+      id: channel.id,
+      name: channel.name,
+      is_private: channel.is_private,
+      is_archived: channel.is_archived
+    })).filter(channel => !channel.is_archived);
+    
+    res.json(channels);
+  } catch (error) {
+    console.error('Error fetching channels:', error);
+    res.status(500).json({ error: 'Failed to fetch channels' });
   }
 });
 
@@ -204,7 +245,7 @@ app.command('/poap-rules', async ({ ack, respond, command }) => {
     });
     
     if (rules.length === 0) {
-      await respond('No active POAP rules found.');
+      await respond('No active POAP rules found.\n\nUse `/poap-create` to create a new rule or visit the admin panel: https://slack-poap-bot.vercel.app/admin');
       return;
     }
     
@@ -215,10 +256,70 @@ app.command('/poap-rules', async ({ ack, respond, command }) => {
       response += `  POAP: ${rule.poap_name}\n\n`;
     });
     
+    response += '\nManage rules: https://slack-poap-bot.vercel.app/admin';
+    
     await respond(response);
   } catch (error) {
     await respond('Sorry, there was an error fetching POAP rules.');
   }
+});
+
+app.command('/poap-create', async ({ ack, respond, command }) => {
+  await ack();
+  
+  const args = command.text.trim().split(' ');
+  
+  if (args.length < 4) {
+    await respond({
+      text: '❌ Usage: `/poap-create <channel> <threshold> <poap-event-id> <poap-name>`\n\n' +
+            'Example: `/poap-create general 3 event-123 "Community Engagement POAP"`\n\n' +
+            'Or use the web interface: https://slack-poap-bot.vercel.app/admin',
+      response_type: 'ephemeral'
+    });
+    return;
+  }
+  
+  try {
+    const channelId = args[0].replace('#', '');
+    const reactionThreshold = parseInt(args[1]);
+    const poapEventId = args[2];
+    const poapName = args.slice(3).join(' ').replace(/"/g, '');
+    
+    if (isNaN(reactionThreshold) || reactionThreshold < 1) {
+      await respond('❌ Reaction threshold must be a positive number.');
+      return;
+    }
+    
+    const ruleId = await db.addPoapRule(channelId, reactionThreshold, poapEventId, poapName);
+    
+    await respond({
+      text: `✅ POAP rule created successfully!\n\n` +
+            `📍 Channel: #${channelId}\n` +
+            `⚡ Threshold: ${reactionThreshold} reactions\n` +
+            `🎯 POAP: ${poapName}\n` +
+            `🆔 Event ID: ${poapEventId}\n\n` +
+            `Users will now receive this POAP when their messages in #${channelId} get ${reactionThreshold}+ reactions!`,
+      response_type: 'in_channel'
+    });
+  } catch (error) {
+    await respond(`❌ Error creating POAP rule: ${error.message}`);
+  }
+});
+
+app.command('/poap-admin', async ({ ack, respond, command }) => {
+  await ack();
+  
+  await respond({
+    text: '🔧 POAP Bot Admin Panel\n\n' +
+          '🌐 Web Interface: https://slack-poap-bot.vercel.app/admin\n\n' +
+          '📋 Available Commands:\n' +
+          '• `/poap-stats` - View delivery statistics\n' +
+          '• `/poap-rules` - List active rules\n' +
+          '• `/poap-create` - Create new rule\n' +
+          '• `/poap-admin` - Show this help\n\n' +
+          '💡 Tip: Use the web interface for easier rule management!',
+    response_type: 'ephemeral'
+  });
 });
 
 const PORT = process.env.PORT || 3000;

@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>POAP Bot Admin</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+        }
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+        .dashboard {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+        .card {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        .card h2 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #555;
+        }
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+        .form-group input:focus, .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+            width: 100%;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+        .btn-danger {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);
+        }
+        .rules-list {
+            grid-column: 1 / -1;
+        }
+        .rule-item {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .rule-info {
+            flex: 1;
+        }
+        .rule-info h4 {
+            color: #333;
+            margin-bottom: 5px;
+        }
+        .rule-info p {
+            color: #666;
+            font-size: 14px;
+        }
+        .rule-actions {
+            display: flex;
+            gap: 10px;
+        }
+        .btn-small {
+            padding: 8px 16px;
+            font-size: 14px;
+            width: auto;
+        }
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        @media (max-width: 768px) {
+            .dashboard {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎯 POAP Bot Admin</h1>
+            <p>Manage POAP delivery rules for your Slack workspace</p>
+        </div>
+
+        <div id="message"></div>
+
+        <div class="dashboard">
+            <div class="card">
+                <h2>📋 Create New POAP Rule</h2>
+                <form id="createRuleForm">
+                    <div class="form-group">
+                        <label for="channelId">Slack Channel</label>
+                        <select id="channelId" name="channelId" required>
+                            <option value="">Loading channels...</option>
+                        </select>
+                        <small style="color: #666;">Select the channel for POAP delivery</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="reactionThreshold">Reaction Threshold</label>
+                        <input type="number" id="reactionThreshold" name="reactionThreshold" min="1" max="50" value="3" required>
+                        <small style="color: #666;">Number of reactions needed to trigger POAP</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="poapTemplate">POAP Template (Optional)</label>
+                        <select id="poapTemplate" name="poapTemplate">
+                            <option value="">Custom POAP (enter details below)</option>
+                            <option value="engagement">Community Engagement POAP</option>
+                            <option value="creator">Content Creator POAP</option>
+                            <option value="helper">Community Helper POAP</option>
+                            <option value="viral">Viral Post POAP</option>
+                        </select>
+                        <small style="color: #666;">Choose a preset or create custom</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="poapEventId">POAP Event ID</label>
+                        <input type="text" id="poapEventId" name="poapEventId" placeholder="e.g., your-poap-event-123" required>
+                        <small style="color: #666;">Your POAP event identifier from POAP.xyz</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="poapName">POAP Name</label>
+                        <input type="text" id="poapName" name="poapName" placeholder="e.g., Slack Engagement POAP" required>
+                        <small style="color: #666;">Descriptive name for this POAP</small>
+                    </div>
+                    
+                    <button type="submit" class="btn">Create POAP Rule</button>
+                </form>
+            </div>
+
+            <div class="card">
+                <h2>📊 Quick Stats</h2>
+                <div id="stats">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        <p>Loading stats...</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card rules-list">
+                <h2>⚙️ Active POAP Rules</h2>
+                <div id="rulesList">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        <p>Loading rules...</p>
+                    </div>
+                </div>
+                <button class="btn" onclick="loadRules()" style="margin-top: 20px;">🔄 Refresh Rules</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin;
+
+        // Load initial data
+        document.addEventListener('DOMContentLoaded', function() {
+            loadRules();
+            loadStats();
+            loadChannels();
+            setupPoapTemplates();
+        });
+
+        // Create new POAP rule
+        document.getElementById('createRuleForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(e.target);
+            const data = {
+                channelId: formData.get('channelId'),
+                reactionThreshold: parseInt(formData.get('reactionThreshold')),
+                poapEventId: formData.get('poapEventId'),
+                poapName: formData.get('poapName')
+            };
+
+            try {
+                showMessage('Creating POAP rule...', 'info');
+                
+                const response = await fetch(`${API_BASE}/poap-rules`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    showMessage(`POAP rule created successfully for #${data.channelId}!`, 'success');
+                    e.target.reset();
+                    loadRules();
+                } else {
+                    showMessage(`Error: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                showMessage(`Error: ${error.message}`, 'error');
+            }
+        });
+
+        // Load POAP rules
+        async function loadRules() {
+            const rulesContainer = document.getElementById('rulesList');
+            rulesContainer.innerHTML = '<div class="loading"><div class="spinner"></div><p>Loading rules...</p></div>';
+
+            try {
+                const response = await fetch(`${API_BASE}/poap-rules`);
+                const rules = await response.json();
+
+                if (rules.length === 0) {
+                    rulesContainer.innerHTML = '<p style="text-align: center; color: #666; padding: 40px;">No POAP rules configured yet. Create your first rule above!</p>';
+                    return;
+                }
+
+                rulesContainer.innerHTML = rules.map(rule => `
+                    <div class="rule-item">
+                        <div class="rule-info">
+                            <h4>${rule.poap_name}</h4>
+                            <p><strong>Channel:</strong> #${rule.channel_id} | <strong>Threshold:</strong> ${rule.reaction_threshold} reactions | <strong>Event ID:</strong> ${rule.poap_event_id}</p>
+                            <p><small>Created: ${new Date(rule.created_at).toLocaleDateString()}</small></p>
+                        </div>
+                        <div class="rule-actions">
+                            <button class="btn btn-danger btn-small" onclick="deleteRule(${rule.id}, '${rule.channel_id}')">
+                                Delete
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                rulesContainer.innerHTML = `<p style="color: #721c24; text-align: center; padding: 20px;">Error loading rules: ${error.message}</p>`;
+            }
+        }
+
+        // Load stats
+        async function loadStats() {
+            const statsContainer = document.getElementById('stats');
+            
+            try {
+                // Mock stats for now - you can implement actual stats endpoint
+                const stats = {
+                    totalRules: 3,
+                    totalDeliveries: 12,
+                    activeChannels: 2
+                };
+
+                statsContainer.innerHTML = `
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; text-align: center;">
+                        <div>
+                            <h3 style="color: #667eea; font-size: 2rem; margin-bottom: 5px;">${stats.totalRules}</h3>
+                            <p style="color: #666;">Active Rules</p>
+                        </div>
+                        <div>
+                            <h3 style="color: #667eea; font-size: 2rem; margin-bottom: 5px;">${stats.totalDeliveries}</h3>
+                            <p style="color: #666;">POAPs Delivered</p>
+                        </div>
+                    </div>
+                `;
+            } catch (error) {
+                statsContainer.innerHTML = `<p style="color: #721c24;">Error loading stats</p>`;
+            }
+        }
+
+        // Delete rule
+        async function deleteRule(ruleId, channelId) {
+            if (!confirm(`Are you sure you want to delete the POAP rule for #${channelId}?`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/poap-rules/${ruleId}`, {
+                    method: 'DELETE'
+                });
+
+                if (response.ok) {
+                    showMessage(`POAP rule for #${channelId} deleted successfully!`, 'success');
+                    loadRules();
+                } else {
+                    const result = await response.json();
+                    showMessage(`Error: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                showMessage(`Error: ${error.message}`, 'error');
+            }
+        }
+
+        // Load Slack channels
+        async function loadChannels() {
+            const channelSelect = document.getElementById('channelId');
+            
+            try {
+                const response = await fetch(`${API_BASE}/slack-channels`);
+                const channels = await response.json();
+
+                channelSelect.innerHTML = '<option value="">Select a channel...</option>';
+                
+                channels.forEach(channel => {
+                    const option = document.createElement('option');
+                    option.value = channel.name;
+                    option.textContent = `#${channel.name}${channel.is_private ? ' (private)' : ''}`;
+                    channelSelect.appendChild(option);
+                });
+            } catch (error) {
+                channelSelect.innerHTML = '<option value="">Error loading channels</option>';
+                console.error('Error loading channels:', error);
+            }
+        }
+
+        // Setup POAP templates
+        function setupPoapTemplates() {
+            const templateSelect = document.getElementById('poapTemplate');
+            const poapEventId = document.getElementById('poapEventId');
+            const poapName = document.getElementById('poapName');
+            const reactionThreshold = document.getElementById('reactionThreshold');
+
+            const templates = {
+                engagement: {
+                    name: 'Community Engagement POAP',
+                    eventId: 'engagement-poap-001',
+                    threshold: 3
+                },
+                creator: {
+                    name: 'Content Creator POAP',
+                    eventId: 'creator-poap-001',
+                    threshold: 5
+                },
+                helper: {
+                    name: 'Community Helper POAP',
+                    eventId: 'helper-poap-001',
+                    threshold: 3
+                },
+                viral: {
+                    name: 'Viral Post POAP',
+                    eventId: 'viral-poap-001',
+                    threshold: 10
+                }
+            };
+
+            templateSelect.addEventListener('change', function() {
+                const template = templates[this.value];
+                if (template) {
+                    poapName.value = template.name;
+                    poapEventId.value = template.eventId;
+                    reactionThreshold.value = template.threshold;
+                } else {
+                    // Clear fields when "Custom" is selected
+                    poapName.value = '';
+                    poapEventId.value = '';
+                    reactionThreshold.value = 3;
+                }
+            });
+        }
+
+        // Show message
+        function showMessage(message, type) {
+            const messageContainer = document.getElementById('message');
+            messageContainer.innerHTML = `<div class="${type}">${message}</div>`;
+            
+            setTimeout(() => {
+                messageContainer.innerHTML = '';
+            }, 5000);
+        }
+    </script>
+</body>
+</html>
