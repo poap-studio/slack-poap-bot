@@ -22,22 +22,37 @@ const server = express();
 server.use(express.json());
 // Static files served by Vercel routing
 
-server.post('/slack/events', (req, res) => {
-  const { type, challenge, event } = req.body;
+server.post('/slack/events', async (req, res) => {
+  const { type, challenge, event, command } = req.body;
   
+  // Handle URL verification
   if (type === 'url_verification') {
     return res.json({ challenge });
   }
   
-  if (type === 'event_callback' && event) {
-    app.processEvent({
-      body: req.body,
-      headers: req.headers,
-      ack: () => res.sendStatus(200)
-    });
-  } else {
-    res.sendStatus(200);
+  // Handle slash commands
+  if (command) {
+    try {
+      await app.receiver.app(req, res);
+      return;
+    } catch (error) {
+      console.error('Slash command error:', error);
+      return res.status(500).json({ error: 'Command failed' });
+    }
   }
+  
+  // Handle events
+  if (type === 'event_callback' && event) {
+    try {
+      await app.receiver.app(req, res);
+      return;
+    } catch (error) {
+      console.error('Event processing error:', error);
+      return res.status(500).json({ error: 'Event processing failed' });
+    }
+  }
+  
+  res.sendStatus(200);
 });
 
 server.get('/health', (req, res) => {
