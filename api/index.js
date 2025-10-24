@@ -156,7 +156,7 @@ server.post('/slack/events', async (req, res) => {
   
   // Handle events
   if (type === 'event_callback' && event) {
-    console.log('Processing event:', event.type);
+    console.log('🔥 EVENT RECEIVED:', event.type, 'from user:', event.user, 'in channel:', event.item?.channel);
     
     if (event.type === 'reaction_added') {
       // Use existing reaction handling logic
