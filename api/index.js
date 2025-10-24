@@ -20,7 +20,7 @@ const poapService = new PoapService();
 
 const server = express();
 server.use(express.json());
-server.use(express.static('public'));
+// Static files served by Vercel routing
 
 server.post('/slack/events', (req, res) => {
   const { type, challenge, event } = req.body;
@@ -83,9 +83,7 @@ server.delete('/poap-rules/:id', async (req, res) => {
   }
 });
 
-server.get('/admin', (req, res) => {
-  res.sendFile('admin.html', { root: 'public' });
-});
+// Admin route handled by Vercel routing to admin.html
 
 server.get('/slack-channels', async (req, res) => {
   try {
