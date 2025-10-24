@@ -229,35 +229,84 @@ server.post('/slack/events', async (req, res) => {
             
             try {
               const userInfo = await web.users.info({ user: messageAuthor });
-              const userEmail = userInfo.user.profile.email;
+              const userEmail = userInfo.user.profile.email || 'no-email@example.com';
               const userName = userInfo.user.real_name || userInfo.user.name;
               
-              if (!userEmail) {
-                console.log(`No email found for user ${messageAuthor}`);
-                await web.chat.postMessage({
-                  channel: messageAuthor,
-                  text: `🎉 Congratulations! Your message got ${totalReactions} reactions and earned you a POAP! However, we need your email address to send it. Please update your Slack profile with your email address.`
-                });
-                return res.sendStatus(200);
-              }
+              console.log(`Generating POAP for ${userName} (${userEmail})`);
               
+              // Generate POAP claim link
               const claimLink = await poapService.generateClaimLink(poapRule.poap_event_id, userEmail);
               
-              const emailResult = await emailService.sendPoapEmail(userEmail, userName, poapRule.poap_name, claimLink);
+              // Send POAP link directly via Slack DM
+              await web.chat.postMessage({
+                channel: messageAuthor,
+                blocks: [
+                  {
+                    type: "header",
+                    text: {
+                      type: "plain_text",
+                      text: "🎉 You've Earned a POAP!"
+                    }
+                  },
+                  {
+                    type: "section",
+                    fields: [
+                      {
+                        type: "mrkdwn",
+                        text: `*POAP:* ${poapRule.poap_name}`
+                      },
+                      {
+                        type: "mrkdwn",
+                        text: `*Channel:* #${channelName}`
+                      },
+                      {
+                        type: "mrkdwn",
+                        text: `*Reactions:* ${totalReactions}`
+                      },
+                      {
+                        type: "mrkdwn",
+                        text: `*Event ID:* ${poapRule.poap_event_id}`
+                      }
+                    ]
+                  },
+                  {
+                    type: "section",
+                    text: {
+                      type: "mrkdwn",
+                      text: `Congratulations ${userName}! Your message got ${totalReactions} reactions and earned you this exclusive POAP!`
+                    }
+                  },
+                  {
+                    type: "actions",
+                    elements: [
+                      {
+                        type: "button",
+                        text: {
+                          type: "plain_text",
+                          text: "🎯 Claim Your POAP"
+                        },
+                        style: "primary",
+                        url: claimLink
+                      }
+                    ]
+                  },
+                  {
+                    type: "context",
+                    elements: [
+                      {
+                        type: "mrkdwn",
+                        text: "Click the button above to mint your POAP NFT. POAPs are unique digital collectibles that prove your participation!"
+                      }
+                    ]
+                  }
+                ]
+              });
               
-              if (emailResult.success) {
-                await db.markPoapSent(messageTs, messageAuthor);
-                await db.recordPoapDelivery(messageAuthor, userEmail, messageTs, channelId, poapRule.poap_event_id, claimLink);
-                
-                await web.chat.postMessage({
-                  channel: messageAuthor,
-                  text: `🎉 Congratulations ${userName}! Your message in #${channelName} got ${totalReactions} reactions and earned you a POAP! Check your email (${userEmail}) for claim instructions.`
-                });
-                
-                console.log(`POAP successfully sent to ${userEmail}`);
-              } else {
-                console.error('Failed to send POAP email:', emailResult.error);
-              }
+              // Record the delivery
+              await db.markPoapSent(messageTs, messageAuthor);
+              await db.recordPoapDelivery(messageAuthor, userEmail, messageTs, channelId, poapRule.poap_event_id, claimLink);
+              
+              console.log(`POAP link sent to ${userName} via Slack DM: ${claimLink}`);
               
             } catch (userError) {
               console.error('Error processing POAP delivery:', userError);
