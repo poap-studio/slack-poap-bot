@@ -2,9 +2,9 @@ require('dotenv').config();
 const { App } = require('@slack/bolt');
 const { WebClient } = require('@slack/web-api');
 const express = require('express');
-const Database = require('./src/database');
-const EmailService = require('./src/emailService');
-const PoapService = require('./src/poapService');
+const Database = require('../src/database');
+const EmailService = require('../src/emailService');
+const PoapService = require('../src/poapService');
 
 const app = new App({
   token: process.env.SLACK_ACCESS_TOKEN,
