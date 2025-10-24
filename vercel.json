@@ -1,26 +1,26 @@
 {
   "version": 2,
   "functions": {
-    "index.js": {
+    "api/index.js": {
       "maxDuration": 10
     }
   },
   "routes": [
     {
       "src": "/slack/events",
-      "dest": "/index.js"
+      "dest": "/api/index.js"
     },
     {
       "src": "/health",
-      "dest": "/index.js"
+      "dest": "/api/index.js"
     },
     {
       "src": "/poap-rules",
-      "dest": "/index.js"
+      "dest": "/api/index.js"
     },
     {
       "src": "/(.*)",
-      "dest": "/index.js"
+      "dest": "/api/index.js"
     }
   ],
   "env": {
