@@ -224,7 +224,6 @@ app.command('/poap-rules', async ({ ack, respond, command }) => {
 const PORT = process.env.PORT || 3000;
 
 if (process.env.NODE_ENV === 'production') {
-  server.use('/slack/events', app.receiver.app);
   module.exports = server;
 } else {
   (async () => {
